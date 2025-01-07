@@ -28,6 +28,9 @@ class RobotContainer:
 
     def __init__(self) -> None:
         # The robot's subsystems
+        from subsystems.limelight_camera import LimelightCamera
+        self.camera = LimelightCamera("limelight-aiming")  # name of your camera goes in parentheses
+
         self.robotDrive = DriveSubsystem()
 
         # The driver's controller
@@ -87,20 +90,47 @@ class RobotContainer:
     def configureAutos(self):
         self.chosenAuto = wpilib.SendableChooser()
         # you can also set the default option, if needed
-        self.chosenAuto.setDefaultOption("trajectory example", self.getAutonomousTrajectoryExample)
-        self.chosenAuto.addOption("left blue", self.getAutonomousLeftBlue)
-        self.chosenAuto.addOption("left red", self.getAutonomousLeftRed)
+        self.chosenAuto.setDefaultOption("straight blue left", self.getAutonomousStraightBlueLeft)
+        self.chosenAuto.addOption("curved blue left", self.getAutonomousCurvedBlueLeft)
+        self.chosenAuto.addOption("approach tag", self.getApproachTagCommand)
         wpilib.SmartDashboard.putData("Chosen Auto", self.chosenAuto)
 
-    def getAutonomousLeftBlue(self):
-        setStartPose = ResetXY(x=0.783, y=6.686, headingDegrees=+60, drivetrain=self.robotDrive)
-        driveForward = commands2.RunCommand(lambda: self.robotDrive.arcadeDrive(xSpeed=1.0, rot=0.0), self.robotDrive)
-        stop = commands2.InstantCommand(lambda: self.robotDrive.arcadeDrive(0, 0))
+    def getApproachTagCommand(self):
+        setStartPose = ResetXY(x=8.775, y=7.262, headingDegrees=180, drivetrain=self.robotDrive)
 
-        command = setStartPose.andThen(driveForward.withTimeout(1.0)).andThen(stop)
+        from commands.jerkytrajectory import JerkyTrajectory
+        trajectory = JerkyTrajectory(
+            drivetrain=self.robotDrive,
+            endpoint=(2.594, 3.996, 0.0),
+            waypoints=[
+                (8.775, 7.262, 180.0),
+                (6.503, 7.262, -178.831),
+                (3.578, 7.106, -175.504),
+                (2.174, 5.497, -101.094),
+            ],
+            speed=0.2,
+        )
+
+        from commands.followobject import FollowObject, StopWhen
+        followTag = FollowObject(self.camera, self.robotDrive, stopWhen=StopWhen(maxSize=8.0), speed=0.2)
+
+        from commands.arcadedrive import ArcadeDrive
+        driveForwardALittle = ArcadeDrive(driveSpeed=0.15, rotationSpeed=0.0, drivetrain=self.robotDrive).withTimeout(0.3)
+
+        command = setStartPose.andThen(trajectory).andThen(followTag).andThen(driveForwardALittle)
         return command
 
-    def getAutonomousLeftRed(self):
+
+    def getAutonomousStraightBlueLeft(self):
+        setStartPose = ResetXY(x=0.783, y=6.686, headingDegrees=+60, drivetrain=self.robotDrive)
+
+        from commands.gotopoint import GoToPoint
+        driveForward = GoToPoint(x=6.33, y=6.686, drivetrain=self.robotDrive)
+
+        command = setStartPose.andThen(driveForward)
+        return command
+
+    def getAutonomousCurvedBlueLeft(self):
         setStartPose = ResetXY(x=15.777, y=4.431, headingDegrees=-120, drivetrain=self.robotDrive)
         driveForward = commands2.RunCommand(lambda: self.robotDrive.arcadeDrive(xSpeed=1.0, rot=0.0), self.robotDrive)
         stop = commands2.InstantCommand(lambda: self.robotDrive.arcadeDrive(0, 0))
