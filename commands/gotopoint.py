@@ -29,6 +29,7 @@ class GoToPoint(commands2.Command):
         :param y:
         :param drivetrain:
         :param speed: between -1.0 and +1.0 (you can use negative speed to drive backwards)
+        :param finishDirection: Rotation2d for robot direction at the finish point, example: Rotation2d.fromDegrees(-70)
         :param slowDownAtFinish:
         """
         super().__init__()

@@ -5,6 +5,9 @@ from commands.aimtodirection import AimToDirection
 class FindObject(commands2.Command):
 
     def __init__(self, camera, drivetrain, turnDegrees=-45, turnSpeed=1.0, waitSeconds=0.1):
+        """
+        Keeps rotating the robot in increments of 45 degrees (or what you set), until camera detects an object
+        """
         super().__init__()
         self.camera0 = camera
         self.drivetrain = drivetrain

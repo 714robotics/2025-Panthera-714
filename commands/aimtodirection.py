@@ -6,11 +6,9 @@
 
 from __future__ import annotations
 
-import math
 import typing
 import commands2
 
-from subsystems.drivesubsystem import DriveSubsystem
 from wpimath.geometry import Rotation2d
 
 
@@ -22,7 +20,7 @@ class AimToDirectionConstants:
 
 
 class AimToDirection(commands2.Command):
-    def __init__(self, degrees: float | typing.Callable[[], float], drivetrain: DriveSubsystem, speed=1.0, fwd_speed=0.0):
+    def __init__(self, degrees: float | typing.Callable[[], float], drivetrain, speed=1.0, fwd_speed=0.0):
         super().__init__()
 
         self.drivetrain = drivetrain
