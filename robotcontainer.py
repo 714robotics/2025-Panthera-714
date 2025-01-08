@@ -70,6 +70,7 @@ class RobotContainer:
         and then passing it to a JoystickButton.
         """
 
+        from commands.setcamerapipeline import SetCameraPipeline
         from commands.followobject import FollowObject, StopWhen
         from commands.alignwithtag import AlignWithTag
         from commands.swervetopoint import SwerveToSide

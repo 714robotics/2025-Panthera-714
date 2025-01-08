@@ -7,12 +7,10 @@
 from __future__ import annotations
 
 import math
-import typing
 import commands2
 
 from commands.aimtodirection import AimToDirectionConstants
 from commands.gotopoint import GoToPointConstants
-import constants
 
 from wpimath.geometry import Rotation2d
 from wpilib import Timer
