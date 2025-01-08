@@ -6,15 +6,19 @@
 
 from __future__ import annotations
 
+import math
 import typing
 import commands2
 
 from wpimath.geometry import Rotation2d
+from constants import AutoConstants
 
 
 class AimToDirectionConstants:
-    kP = 0.004  # 0.002 is the default, but you must calibrate this to your robot
-    kMinTurnSpeed = 0.05  # turning slower than this is unproductive for the motor (might not even spin)
+    kP = 0.002  # 0.002 is the default, but you must calibrate this to your robot
+    kUseSqrtControl = AutoConstants.kUseSqrtControl
+
+    kMinTurnSpeed = 0.03  # turning slower than this is unproductive for the motor (might not even spin)
     kAngleToleranceDegrees = 2.0  # plus minus 2 degrees is "close enough"
     kAngleVelocityToleranceDegreesPerSec = 50  # velocity under 100 degrees/second is considered "stopped"
 
@@ -55,9 +59,11 @@ class AimToDirection(commands2.Command):
         # 2. proportional control: if we are almost finished turning, use slower turn speed (to avoid overshooting)
         turnSpeed = self.speed
         proportionalSpeed = AimToDirectionConstants.kP * abs(degreesRemaining)
+        if AimToDirectionConstants.kUseSqrtControl:
+            proportionalSpeed = math.sqrt(0.5 * proportionalSpeed)  # will match the non-sqrt value when 50% max speed
         if turnSpeed > proportionalSpeed:
             turnSpeed = proportionalSpeed
-        if turnSpeed < AimToDirectionConstants.kMinTurnSpeed:
+        if turnSpeed < AimToDirectionConstants.kMinTurnSpeed and self.fwdSpeed == 0:
             turnSpeed = AimToDirectionConstants.kMinTurnSpeed  # but not too small
 
         # 3. act on it! if target angle is on the right, turn right

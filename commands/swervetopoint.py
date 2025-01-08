@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 import commands2
+import math
 
 from subsystems.drivesubsystem import DriveSubsystem
 from commands.aimtodirection import AimToDirectionConstants
@@ -50,7 +51,10 @@ class SwerveToPoint(commands2.Command):
         xDistance, yDistance = self.targetPose.x - currentXY.x, self.targetPose.y - currentXY.y
         totalDistance = self.targetPose.translation().distance(currentXY.translation())
 
-        totalSpeed = 0.75 * GoToPointConstants.kPTranslate * totalDistance
+        totalSpeed = GoToPointConstants.kPTranslate * totalDistance
+        if GoToPointConstants.kUseSqrtControl:
+            totalSpeed = math.sqrt(0.5 * totalSpeed)
+
         if totalSpeed > abs(self.speed):
             totalSpeed = abs(self.speed)
         if totalSpeed < GoToPointConstants.kMinTranslateSpeed:
@@ -63,15 +67,18 @@ class SwerveToPoint(commands2.Command):
             ySpeed = totalSpeed * yDistance / totalDistance
 
         degreesLeftToTurn = self.getDegreesLeftToTurn()
-        turningSpeed = 0.75 * abs(degreesLeftToTurn) * AimToDirectionConstants.kP
+        turningSpeed = 0.5 * abs(degreesLeftToTurn) * AimToDirectionConstants.kP
+        if AimToDirectionConstants.kUseSqrtControl:
+            turningSpeed = math.sqrt(0.5 * turningSpeed)  # will match the non-sqrt value when 50% max speed
         if turningSpeed > abs(self.speed):
             turningSpeed = abs(self.speed)
-        if turningSpeed < AimToDirectionConstants.kMinTurnSpeed:
-            turningSpeed = AimToDirectionConstants.kMinTurnSpeed
         if degreesLeftToTurn < 0:
             turningSpeed = -turningSpeed
 
-        self.drivetrain.drive(xSpeed, ySpeed, turningSpeed, fieldRelative=True, rateLimit=False)
+        # now rotate xSpeed and ySpeed into robot coordinates
+        speed = Translation2d(x=xSpeed, y=ySpeed).rotateBy(-self.drivetrain.getHeading())
+
+        self.drivetrain.drive(speed.x, speed.y, turningSpeed, fieldRelative=False, rateLimit=False)
 
     def end(self, interrupted: bool):
         self.drivetrain.arcadeDrive(0, 0)
@@ -108,3 +115,31 @@ class SwerveToPoint(commands2.Command):
           degreesLeftToTurn += 360
 
         return degreesLeftToTurn
+
+
+class SwerveToSide(commands2.Command):
+    def __init__(self, metersToTheLeft: float, drivetrain: DriveSubsystem, speed=1.0) -> None:
+        super().__init__()
+        self.drivetrain = drivetrain
+        self.addRequirements(drivetrain)
+        self.speed = speed
+        self.metersToTheLeft = metersToTheLeft
+        self.subcommand = None
+
+    def initialize(self):
+        position = self.drivetrain.getPose()
+        heading = position.rotation()
+        target = position.translation() + Translation2d(x=0, y=self.metersToTheLeft).rotateBy(heading)
+        self.subcommand = SwerveToPoint(
+            x=target.x, y=target.y, headingDegrees=heading.degrees(), drivetrain=self.drivetrain, speed=self.speed
+        )
+        self.subcommand.initialize()
+
+    def isFinished(self) -> bool:
+        return self.subcommand.isFinished()
+
+    def execute(self):
+        return self.subcommand.execute()
+
+    def end(self, interrupted: bool):
+        self.subcommand.end(interrupted)

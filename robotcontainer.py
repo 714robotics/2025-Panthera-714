@@ -13,6 +13,7 @@ from wpimath.controller import PIDController, ProfiledPIDControllerRadians, Holo
 from wpimath.geometry import Pose2d, Rotation2d, Translation2d
 from wpimath.trajectory import TrajectoryConfig, TrajectoryGenerator
 
+from commands.aimtodirection import AimToDirection
 from constants import AutoConstants, DriveConstants, OIConstants
 from subsystems.drivesubsystem import DriveSubsystem
 
@@ -69,6 +70,33 @@ class RobotContainer:
         and then passing it to a JoystickButton.
         """
 
+        from commands.followobject import FollowObject, StopWhen
+        from commands.alignwithtag import AlignWithTag
+        from commands.swervetopoint import SwerveToSide
+
+        aButton = JoystickButton(self.driverController, XboxController.Button.kA)
+        aButton.whileTrue(
+            FollowObject(self.camera, self.robotDrive, stopWhen=StopWhen(maxSize=4), speed=0.2)
+            .andThen(
+                AlignWithTag(self.camera, self.robotDrive, 0, speed=0.2, pushForwardSeconds=1.0)
+            ).andThen(
+                SwerveToSide(metersToTheLeft=-0.2, drivetrain=self.robotDrive, speed=1.0)
+            ))
+
+        JoystickButton(self.driverController, XboxController.Button.kLeftBumper).whileTrue(
+            #AimToDirection(degrees=+60, drivetrain=self.robotDrive)
+            SwerveToSide(0.8, drivetrain=self.robotDrive, speed=0.3)
+        )
+
+        JoystickButton(self.driverController, XboxController.Button.kRightBumper).whileTrue(
+            #AimToDirection(degrees=-60, drivetrain=self.robotDrive)
+            SwerveToSide(-0.8, drivetrain=self.robotDrive, speed=0.3)
+        )
+
+#        aButton.whileTrue(
+#            FollowObject(self.camera, self.robotDrive, stopWhen=StopWhen(maxSize=4), speed=0.2)
+#        )
+
         xButton = JoystickButton(self.driverController, XboxController.Button.kX)
         xButton.onTrue(ResetXY(x=0.0, y=0.0, headingDegrees=0.0, drivetrain=self.robotDrive))
         xButton.whileTrue(RunCommand(self.robotDrive.setX, self.robotDrive))  # use the swerve X brake when "X" is pressed
@@ -90,25 +118,26 @@ class RobotContainer:
     def configureAutos(self):
         self.chosenAuto = wpilib.SendableChooser()
         # you can also set the default option, if needed
-        self.chosenAuto.setDefaultOption("straight blue left", self.getAutonomousStraightBlueLeft)
+        self.chosenAuto.addOption("straight blue left", self.getAutonomousStraightBlueLeft)
         self.chosenAuto.addOption("curved blue left", self.getAutonomousCurvedBlueLeft)
-        self.chosenAuto.addOption("approach tag", self.getApproachTagCommand)
+        self.chosenAuto.setDefaultOption("approach tag", self.getApproachTagCommand)
         wpilib.SmartDashboard.putData("Chosen Auto", self.chosenAuto)
 
     def getApproachTagCommand(self):
-        setStartPose = ResetXY(x=8.775, y=7.262, headingDegrees=180, drivetrain=self.robotDrive)
+        setStartPose = ResetXY(x=6.775, y=7.262, headingDegrees=135, drivetrain=self.robotDrive)
 
         from commands.jerkytrajectory import JerkyTrajectory
         trajectory = JerkyTrajectory(
             drivetrain=self.robotDrive,
             endpoint=(2.594, 3.996, 0.0),
             waypoints=[
-                (8.775, 7.262, 180.0),
+                (6.775, 7.262, 180.0),
                 (6.503, 7.262, -178.831),
                 (3.578, 7.106, -175.504),
                 (2.174, 5.497, -101.094),
             ],
-            speed=0.2,
+            speed=0.7,
+            swerve=False,
         )
 
         from commands.followobject import FollowObject, StopWhen
@@ -117,7 +146,7 @@ class RobotContainer:
         from commands.arcadedrive import ArcadeDrive
         driveForwardALittle = ArcadeDrive(driveSpeed=0.15, rotationSpeed=0.0, drivetrain=self.robotDrive).withTimeout(0.3)
 
-        command = setStartPose.andThen(trajectory).andThen(followTag).andThen(driveForwardALittle)
+        command = setStartPose.andThen(trajectory) #.andThen(followTag).andThen(driveForwardALittle)
         return command
 
 

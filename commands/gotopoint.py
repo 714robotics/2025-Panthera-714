@@ -6,17 +6,19 @@
 
 from __future__ import annotations
 import commands2
+import math
 
 from subsystems.drivesubsystem import DriveSubsystem
 from wpimath.geometry import Rotation2d, Translation2d
 
 from commands.aimtodirection import AimToDirectionConstants
-
+from constants import AutoConstants
 
 class GoToPointConstants:
-    kPTranslate = 0.3  # make it 0.2 to be conservative?  # you will need to calibrate this one to your robot
+    kPTranslate = 0.25  # make it 0.2 to be conservative?  # you will need to calibrate this one to your robot
+    kUseSqrtControl = AutoConstants.kUseSqrtControl
 
-    kMinTranslateSpeed = 0.07  # moving forward slower than this is unproductive
+    kMinTranslateSpeed = 0.035  # moving forward slower than this is unproductive
     kApproachRadius = 0.2  # within this radius from target location, try to point in desired direction
     kOversteerAdjustment = 0.5
 
@@ -99,11 +101,16 @@ class GoToPoint(commands2.Command):
         # 4. now when we know the desired direction, we can compute the turn speed
         rotateSpeed = abs(self.speed)
         proportionalRotateSpeed = AimToDirectionConstants.kP * abs(degreesRemaining)
+        if AimToDirectionConstants.kUseSqrtControl:
+            proportionalRotateSpeed = math.sqrt(0.5 * proportionalRotateSpeed)  # will match the non-sqrt value when 50% max speed
         if rotateSpeed > proportionalRotateSpeed:
             rotateSpeed = proportionalRotateSpeed
 
         # 5. but if not too different, then we can drive while turning
         proportionalTransSpeed = GoToPointConstants.kPTranslate * distanceRemaining
+        if GoToPointConstants.kUseSqrtControl:
+            proportionalTransSpeed = math.sqrt(0.5 * proportionalTransSpeed)
+
         translateSpeed = abs(self.speed)  # if we don't plan to stop at the end, go at max speed
         if translateSpeed > proportionalTransSpeed and self.stop:
             translateSpeed = proportionalTransSpeed  # if we plan to stop at the end, slow down when close
@@ -132,6 +139,8 @@ class GoToPoint(commands2.Command):
 
         distanceRemaining = self.targetPosition.distance(currentPosition)
         translateSpeed = GoToPointConstants.kPTranslate * distanceRemaining
+        if GoToPointConstants.kUseSqrtControl:
+            translateSpeed = math.sqrt(0.5 * translateSpeed)
 
         # 1. have we reached the point where we are moving very slowly?
         tooSlowNow = translateSpeed < 0.125 * GoToPointConstants.kMinTranslateSpeed and self.stop
