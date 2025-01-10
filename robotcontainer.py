@@ -29,8 +29,9 @@ class RobotContainer:
 
     def __init__(self) -> None:
         # The robot's subsystems
-        from subsystems.limelight_camera import LimelightCamera
-        self.camera = LimelightCamera("limelight-aiming")  # name of your camera goes in parentheses
+        from subsystems.photon_vision_camera import PhotonVisionCamera
+        self.camera = PhotonVisionCamera("front_camera")
+        self.leftCamera = PhotonVisionCamera("left_camera")
 
         self.robotDrive = DriveSubsystem()
 
@@ -70,33 +71,22 @@ class RobotContainer:
         and then passing it to a JoystickButton.
         """
 
-        from commands.setcamerapipeline import SetCameraPipeline
-        from commands.followobject import FollowObject, StopWhen
-        from commands.alignwithtag import AlignWithTag
-        from commands.swervetopoint import SwerveToSide
-
         aButton = JoystickButton(self.driverController, XboxController.Button.kA)
-        aButton.whileTrue(
-            FollowObject(self.camera, self.robotDrive, stopWhen=StopWhen(maxSize=4), speed=0.2)
-            .andThen(
-                AlignWithTag(self.camera, self.robotDrive, 0, speed=0.2, pushForwardSeconds=1.0)
-            ).andThen(
-                SwerveToSide(metersToTheLeft=-0.2, drivetrain=self.robotDrive, speed=1.0)
-            ))
 
-        JoystickButton(self.driverController, XboxController.Button.kLeftBumper).whileTrue(
-            #AimToDirection(degrees=+60, drivetrain=self.robotDrive)
-            SwerveToSide(0.8, drivetrain=self.robotDrive, speed=0.3)
-        )
+        from commands.setcamerapipeline import SetCameraPipeline
+        setPipeline = SetCameraPipeline(self.camera, pipelineIndex=0)
 
-        JoystickButton(self.driverController, XboxController.Button.kRightBumper).whileTrue(
-            #AimToDirection(degrees=-60, drivetrain=self.robotDrive)
-            SwerveToSide(-0.8, drivetrain=self.robotDrive, speed=0.3)
-        )
+        from commands.findobject import FindObject
+        findTag = FindObject(self.camera, self.robotDrive, turnDegrees=-30)
 
-#        aButton.whileTrue(
-#            FollowObject(self.camera, self.robotDrive, stopWhen=StopWhen(maxSize=4), speed=0.2)
-#        )
+        from commands.followobject import FollowObject, StopWhen
+        followObject = FollowObject(self.camera, self.robotDrive, stopWhen=StopWhen(maxSize=5.0), speed=0.2)
+
+        from commands.alignwithtag import AlignWithTag
+        alignWithTag = AlignWithTag(self.camera, self.robotDrive, pushForwardSeconds=1, pushForwardSpeed=0.08, specificHeadingDegrees=0)
+
+        aButton.whileTrue(setPipeline.andThen(findTag).andThen(followObject).andThen(alignWithTag))
+
 
         xButton = JoystickButton(self.driverController, XboxController.Button.kX)
         xButton.onTrue(ResetXY(x=0.0, y=0.0, headingDegrees=0.0, drivetrain=self.robotDrive))
@@ -127,27 +117,13 @@ class RobotContainer:
     def getApproachTagCommand(self):
         setStartPose = ResetXY(x=6.775, y=7.262, headingDegrees=135, drivetrain=self.robotDrive)
 
-        from commands.jerkytrajectory import JerkyTrajectory
-        trajectory = JerkyTrajectory(
-            drivetrain=self.robotDrive,
-            endpoint=(2.594, 3.996, 0.0),
-            waypoints=[
-                (6.775, 7.262, 180.0),
-                (6.503, 7.262, -178.831),
-                (3.578, 7.106, -175.504),
-                (2.174, 5.497, -101.094),
-            ],
-            speed=0.7,
-            swerve=False,
-        )
+        from commands.findobject import FindObject
+        followTag = FindObject(self.leftCamera, self.robotDrive)
 
-        from commands.followobject import FollowObject, StopWhen
-        followTag = FollowObject(self.camera, self.robotDrive, stopWhen=StopWhen(maxSize=8.0), speed=0.2)
+        #from commands.followobject import FollowObject, StopWhen
+        #followTag = FollowObject(self.camera, self.robotDrive, stopWhen=StopWhen(maxSize=8.0), speed=0.2)
 
-        from commands.arcadedrive import ArcadeDrive
-        driveForwardALittle = ArcadeDrive(driveSpeed=0.15, rotationSpeed=0.0, drivetrain=self.robotDrive).withTimeout(0.3)
-
-        command = setStartPose.andThen(trajectory) #.andThen(followTag).andThen(driveForwardALittle)
+        command = setStartPose.andThen(followTag)
         return command
 
 
